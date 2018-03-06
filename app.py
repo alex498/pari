@@ -1,7 +1,6 @@
 import vk
 from time import *
 import datetime
-from bs4 import BeautifulSoup
 import urllib.request
 
 days=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
@@ -25,14 +24,15 @@ def nedelia():
 
 def make_message():
     url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
-    soup = BeautifulSoup(urllib.request.urlopen(url).read(), 'lxml')
-    day=days[datetime.datetime.today().weekday()+1]
-    result='Завтра нет пар'
-    for tr in soup.findAll('table')[3].findAll('tr'):
-        temp=repr(tr).replace('<tr>','[').replace('</tr>',']')
-        if day in temp:
-            result = 'Завтра к '+str(temp[temp.index(day)+len(day)+46:temp.index(day)+len(day)+47])+' паре'
-    return result
+    urllib.request.urlopen(url).read()
+    
+    day=days[now_time().weekday()+1]
+    url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
+    text = urllib.request.urlopen(url).read().decode('utf-8')
+    if day!='Воскресенье':
+        return 'Завтра к '+str(text[text.index(day)+len(day)+46:text.index(day)+len(day)+47])+' паре'
+    else:
+        return 'Завтра нет пар' 
 
 session = vk.AuthSession(vk_id, login, password, scope='messages')
 vk_api = vk.API(session, v='5.62')
