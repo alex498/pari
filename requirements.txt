@@ -1,3 +1,2 @@
 vk
 bs4
-urllib
