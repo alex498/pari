@@ -41,6 +41,7 @@ while True:
     last_time=None
     if list(now_time().timetuple())[3]>22 and list(now_time().timetuple())[3]<24 and (last_time==None or ((now_time()-last_time).seconds // 3600)>22):
         print(vk_api.messages.send(user_id="95881708", message=make_message()))
+        last_time=now_time()
     sleep(300)
         
         
