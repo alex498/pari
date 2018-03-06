@@ -23,25 +23,29 @@ def nedelia():
         return '2'
 
 def make_message(mode):
-    url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
-    urllib.request.urlopen(url).read()
-    if mode=='Сегодня':
-        day=days[now_time().weekday()]
-    if mode=='Завтра':
-        day=days[now_time().weekday()+1]
-    url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
-    text = urllib.request.urlopen(url).read().decode('utf-8')
-    if day!='Воскресенье':
-        para=str(text[text.index(day)+len(day)+46:text.index(day)+len(day)+47])
-        return 'Завтра к '+p_start[int(para)]+' пара №'+para
-    else:
-        return 'Завтра нет пар' 
+    try:      
+        url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
+        urllib.request.urlopen(url).read()
+        if mode=='Сегодня':
+            day=days[now_time().weekday()]
+        if mode=='Завтра':
+            day=days[now_time().weekday()+1]
+        url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
+        text = urllib.request.urlopen(url).read().decode('utf-8')
+        if day!='Воскресенье':
+            para=str(text[text.index(day)+len(day)+46:text.index(day)+len(day)+47])
+            return 'Завтра к '+p_start[int(para)]+' пара №'+para
+        else:
+            return  'Завтра нет пар'
+    except:
+        return 'Вероятно сайт расписания не работает сейчас'
 
 session = vk.AuthSession(vk_id, login, password, scope='messages')
 vk_api = vk.API(session, v='5.62')
 
 l={'95881708':None,'147933155':None,'164138740':None}
 d={'alex__brin':None,'ar4ibald98':None}
+
 while True:
     for msg in vk_api.messages.get(count=10)['items']:
             if msg['read_state']==0: # get all unread messages
