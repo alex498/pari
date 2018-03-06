@@ -1,5 +1,3 @@
 vk
-time
-datetime
 bs4
 urllib
