@@ -1,70 +1,122 @@
-import vk
+import dpath.util
+from requests import get
+import speech_recognition as sr
+import vk,os,sys,subprocess,wave,contextlib,math,psutil
 from time import *
 import datetime
 import urllib.request
+from pydub import AudioSegment
+length = 25
 
-p_start=['','8:30','10:10','11:50','13:40','15:20','16:55','18:30','20:05']
-days=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
+def pozdr(name):
+    return '''$name, с днем рождения тебя!!!
+Желаю тебе творческой реализации, пусть в твоей жизни всегда будет радость и счастье!'''.replace('$name',name)
+
+def a_length(input_file):
+    with contextlib.closing(wave.open(input_file,'r')) as f:
+        frames = f.getnframes()
+        rate = f.getframerate()
+        duration = frames / float(rate)
+        return math.ceil(duration / length)
+
+def cut_audio(input_file,num_pieces):       
+    for i in range(num_pieces):
+        output = 'output/'+input_file.replace('.','('+str(i)+').')
+        if i==num_pieces-1:
+            s = "ffmpeg -i "+input_file+" -ss "+str(i * length)+" -t "+str(a_length(input_file)%length)+" -acodec copy "+output
+        else:
+            s = "ffmpeg -i "+input_file+" -ss "+str(i * length)+" -t "+str(length)+" -acodec copy "+output
+        print(s)
+        subprocess.call(s,shell=True)
+        for proc in psutil.process_iter():
+        # check whether the process name matches
+            if proc.name() == 'ffmpeg.exe':
+                proc.kill()
+
+def download(url, file_name, wavname):
+    r = get(url, allow_redirects=True)
+    open(file_name, 'wb').write(r.content)
+    sound = AudioSegment.from_mp3(file_name)
+    sound.export(wavname, format="wav")
+
+def links(msg):
+    result = []
+    ttemp = ''.join(msg)
+    while 'link_mp3' in ttemp:
+        start = ttemp.index("link_mp3")+12
+        end = ttemp.index('.mp3')+4
+        result.append(ttemp[start:end])
+        ttemp = ttemp[end:]
+    return result
+        
+
+group = '62884807'
 login = '+79969127739'
 password = '01qi1976'
-vk_id = '6397849'
+vk_id = '6658198'
+t1 = 'c02473bf25903bbb563e04e525a21556dfae97dc52702db07f196f1842977f944adeb0fdf3155226d07ed'
+session = vk.AuthSession(access_token=t1)
+vk_api = vk.API(session,v='5.82')
 
-def now_time():
-    return datetime.datetime.utcnow()+datetime.timedelta(hours=4)
+def write(ids,message):
+    vk_api.messages.send(user_id=ids,message=message)
+    sleep(1)
 
-def nedelia():
-    fp = urllib.request.urlopen("http://raspisanie.asu.edu.ru/")
-    mybytes = fp.read()
-    mystr = mybytes.decode("utf8")
-    fp.close()
-    mystr=mystr.lower()
-    if mystr.count('числитель')>mystr.count('знаменатель'):
-        return '1'
+def respond_audio(link,ans_id,vk_api):
+    name = link.split('/')[-1]
+    wavname = name.split('.')[0]+'.wav'
+    download(link,name,wavname)
+    r = sr.Recognizer()
+    parts = a_length(wavname)
+    print(wavname,parts)
+    if parts==1:        
+        with sr.AudioFile(wavname) as source:
+            audio = r.record(source)  # read the entire audio file
+        try:
+            text = "Я считаю, что сказали: " + r.recognize_google(audio, language="ru_RU")
+            print(ans_id,text)
+            vk_api.messages.send(user_id=ans_id, message=text)
+            os.remove(name)
+            os.remove(wavname)
+        except:
+            vk_api.messages.send(user_id=ans_id, message='Моя твоя не понимать')
+            print(ans_id,'Моя твоя не понимать')
+            os.remove(name)
+            os.remove(wavname)
     else:
-        return '2'
+        text = "Я считаю, что сказали:"
+        cut_audio(wavname,parts)
+        for i in range(parts):
+            with sr.AudioFile('output/'+wavname.replace('.','('+str(i)+').')) as source:
+                audio = r.record(source)  # read the entire audio file
+                try:
+                    text += ' '+r.recognize_google(audio, language="ru_RU")
+                    print(ans_id,text)
+                except:
+                    text='Моя твоя не понимать'
+                    print(ans_id,'Моя твоя не понимать')
+            os.remove('output/'+wavname.replace('.','('+str(i)+').'))
+        os.remove(name)
+        os.remove(wavname)
+        vk_api.messages.send(user_id=ans_id, message=text)
 
-def make_message(mode):
-    try:      
-        url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
-        urllib.request.urlopen(url).read()
-        if mode=='Сегодня':
-            day=days[now_time().weekday()]
-        if mode=='Завтра':
-            day=days[now_time().weekday()+1]
-        url = "http://raspisanie.asu.edu.ru/student/%D0%97%D0%9821/"+nedelia()
-        text = urllib.request.urlopen(url).read().decode('utf-8')
-        if day!='Воскресенье':
-            para=str(text[text.index(day)+len(day)+46:text.index(day)+len(day)+47])
-            return 'Завтра к '+p_start[int(para)]+' пара №'+para
-        else:
-            return  'Завтра нет пар'
-    except:
-        return 'Вероятно сайт расписания не работает сейчас'
-
-session = vk.AuthSession(vk_id, login, password, scope='messages')
-vk_api = vk.API(session, v='5.62')
-
-l={'95881708':None,'147933155':None,'164138740':None}
-d={'alex__brin':None,'ar4ibald98':None}
-
-while True:
-    for msg in vk_api.messages.get(count=10)['items']:
-            if msg['read_state']==0: # get all unread messages
-                if 'сегодня' in msg['body'].lower():
-                    print(vk_api.messages.send(user_id=msg['user_id'], message=make_message('Сегодня')))
-                if 'завтра' in msg['body'].lower():
-                    print(vk_api.messages.send(user_id=msg['user_id'], message=make_message('Сегодня')))
-                vk_api.messages.markAsRead(message_ids=msg['id'])
-    for i in l:
-        if list(now_time().timetuple())[3]>22 and list(now_time().timetuple())[3]<24 and (l[i]==None or ((now_time()-l[i]).seconds // 3600)>22):
-            print(vk_api.messages.send(user_id=i, message=make_message('Завтра')))
-            l[i]=now_time()
-    for i in d:
-        if list(now_time().timetuple())[3]>22 and list(now_time().timetuple())[3]<24 and (d[i]==None or ((now_time()-d[i]).seconds // 3600)>22):
-            print(vk_api.messages.send(domain=i, message=make_message('Завтра')))
-            d[i]=now_time()
-    sleep(10)
+a = True
+while a:
+    sleep(5)
+    try:
+        for msg in vk_api.messages.getDialogs(count=10, unread=1)['items']:
+            if '!др' in str(msg['message']['body']):
+                vk_api.messages.send(user_id=msg['message']['user_id'], message=pozdr(msg['message']['body'][3:]))
+            if 'fwd_messages' in str(msg) and 'link_mp3' in str(msg):
+                ans_id = msg['message']['user_id']
+                for i in links(str(msg)):
+                    respond_audio(i,ans_id,vk_api)
         
+    except Exception as e:
+        print(e,'restart')
+        session = vk.AuthSession(access_token=t1)
+        vk_api = vk.API(session, v='5.82')
+      
         
     
 

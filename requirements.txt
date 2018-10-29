@@ -1,1 +1,16 @@
+dpath
+requests
+speech_recognition
 vk
+os
+sys
+subprocess
+wave
+contextlib
+math
+psutil
+time
+datetime
+urllib
+pydub
+
